@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<QCARConfig>
+  <Tracking>
+    <ImageTarget name="Gedung4" size="0.500000 0.500000" />
+    <ImageTarget name="Gedung3" size="0.500000 0.500000" />
+    <ImageTarget name="Gedung1" size="0.500000 0.500000" />
+    <ImageTarget name="Gedung2" size="0.500000 0.500000" />
+    <ImageTarget name="target_lobi" size="0.150000 0.150000" />
+    <ImageTarget name="Image7" size="0.150000 0.151366" />
+    <ImageTarget name="image6" size="0.150000 0.225000" />
+    <ImageTarget name="image5" size="0.150000 0.225000" />
+    <ImageTarget name="image4" size="0.150000 0.225000" />
+    <ImageTarget name="image3" size="0.150000 0.225000" />
+    <ImageTarget name="image2" size="0.150000 0.225000" />
+    <ImageTarget name="image1" size="0.150000 0.225000" />
+  </Tracking>
+</QCARConfig>

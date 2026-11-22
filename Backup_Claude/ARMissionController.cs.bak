@@ -1,0 +1,180 @@
+using UnityEngine;
+using UnityEngine.UI;
+using UnityEngine.Networking;
+using UnityEngine.SceneManagement;
+using System.Collections;
+using TMPro;
+using Newtonsoft.Json.Linq;
+
+public class ARMissionController : MonoBehaviour
+{
+    [Header("Daftar Semua Target Vuforia")]
+    public GameObject[] allArTargets; 
+
+    [Header("UI Feedback")]
+    public GameObject feedbackPanel;
+    public TextMeshProUGUI feedbackText;
+    public GameObject loadingSpinner;
+    public GameObject successIcon;
+    public GameObject failureIcon;
+
+    [Header("UI Instruksi (BARU)")]
+    public GameObject instructionPanel; // Panel Bawah
+    public Image targetThumbnail;       // Tempat Gambar Buku
+    public TextMeshProUGUI instructionText; // Teks "Cari Buku..."
+
+    private int currentMissionId;
+    private string token;
+    private Coroutine hideFeedbackCoroutine;
+
+    void Start()
+    {
+        if (feedbackPanel) feedbackPanel.SetActive(false);
+        
+        // Matikan panel instruksi dulu sebelum data siap
+        if (instructionPanel) instructionPanel.SetActive(false);
+
+        foreach (var t in allArTargets) t.SetActive(false);
+
+        currentMissionId = PlayerPrefs.GetInt("active_mission_id", 0);
+        token = PlayerPrefs.GetString("user_token");
+
+        if (currentMissionId == 0)
+        {
+            Debug.LogError("Tidak ada ID Misi!");
+            return;
+        }
+
+        StartCoroutine(GetMissionDetailAndSetupAR());
+    }
+
+    IEnumerator GetMissionDetailAndSetupAR()
+    {
+        ShowFeedback("Menyiapkan AR...", "loading");
+
+        UnityWebRequest request = new UnityWebRequest(ApiConfig.BaseUrl + "/missions/" + currentMissionId, "GET");
+        request.downloadHandler = new DownloadHandlerBuffer();
+        request.SetRequestHeader("Authorization", "Bearer " + token);
+        request.SetRequestHeader("Accept", "application/json");
+
+        yield return request.SendWebRequest();
+
+        if (request.result == UnityWebRequest.Result.Success)
+        {
+            ShowFeedback("", "none");
+
+            string json = request.downloadHandler.text;
+            JObject data = JObject.Parse(json);
+
+            string targetNameFromDb = data["target_image_name"].ToString(); 
+            string titleFromDb = data["title"].ToString();
+            string descFromDb = data["description"].ToString();
+
+            ActivateSpecificTarget(targetNameFromDb, titleFromDb, descFromDb);
+        }
+        else
+        {
+            ShowFeedback("Gagal memuat data", "failure");
+            yield return new WaitForSeconds(2f);
+            SceneManager.LoadScene("MissionScene");
+        }
+    }
+
+    void ActivateSpecificTarget(string targetName, string title, string desc)
+    {
+        bool found = false;
+
+        foreach (GameObject target in allArTargets)
+        {
+            if (target.name == targetName)
+            {
+                target.SetActive(true); 
+                found = true;
+                
+                // --- UPDATE OVERLAY AR (World Space) ---
+                TextMeshProUGUI[] texts = target.GetComponentsInChildren<TextMeshProUGUI>();
+                foreach(var txt in texts)
+                {
+                    if (txt.gameObject.name == "DynamicTitle") txt.text = title;
+                    if (txt.gameObject.name == "DynamicDesc") txt.text = desc;
+                }
+
+                // --- UPDATE PANEL INSTRUKSI (Screen Space) ---
+                if (instructionPanel != null)
+                {
+                    instructionPanel.SetActive(true);
+                    
+                    // 1. Update Teks
+                    if (instructionText != null)
+                        instructionText.text = "Cari Buku:\n<size=120%><b>" + title + "</b></size>";
+
+                    // 2. Ambil Gambar dari komponen BookInfo
+                    BookInfo info = target.GetComponent<BookInfo>();
+                    if (info != null && info.coverImage != null && targetThumbnail != null)
+                    {
+                        targetThumbnail.sprite = info.coverImage;
+                        targetThumbnail.color = Color.white; // Pastikan terlihat
+                    }
+                    else
+                    {
+                        // Jika lupa pasang script/gambar
+                        Debug.LogWarning("Target " + targetName + " tidak punya BookInfo atau CoverImage!");
+                    }
+                }
+            }
+        }
+
+        if (!found) ShowFeedback("Error: Target tidak ditemukan!", "failure");
+    }
+
+    // ... (Sisa fungsi FinishMissionRequest dan ShowFeedback SAMA SEPERTI SEBELUMNYA) ...
+    
+    public void OnFinishMissionClicked() { StartCoroutine(FinishMissionRequest()); }
+
+    IEnumerator FinishMissionRequest()
+    {
+        ShowFeedback("Verifikasi...", "loading");
+        UnityWebRequest request = new UnityWebRequest(ApiConfig.BaseUrl + "/missions/" + currentMissionId + "/finish", "POST");
+        request.downloadHandler = new DownloadHandlerBuffer();
+        request.SetRequestHeader("Authorization", "Bearer " + token);
+        request.SetRequestHeader("Accept", "application/json");
+        yield return request.SendWebRequest();
+
+        if (request.result == UnityWebRequest.Result.Success) {
+            string json = request.downloadHandler.text;
+            JObject data = JObject.Parse(json);
+            int points = (int)data["points_awarded"];
+            bool isLevelUp = (bool)data["is_level_up"];
+            string msg = "MISI SELESAI!\n+" + points + " Poin";
+            if (isLevelUp) msg += "\nLEVEL UP!";
+            ShowFeedback(msg, "success");
+            yield return new WaitForSeconds(3f);
+            SceneManager.LoadScene("MissionScene");
+        } else {
+            ShowFeedback("Gagal: " + request.error, "failure");
+            yield return new WaitForSeconds(2f);
+            if(feedbackPanel) feedbackPanel.SetActive(false);
+        }
+    }
+
+    void ShowFeedback(string msg, string state)
+    {
+        if(feedbackPanel == null) return;
+        if(state == "none" || state == "false") { feedbackPanel.SetActive(false); return; }
+        if (hideFeedbackCoroutine != null) StopCoroutine(hideFeedbackCoroutine);
+        feedbackPanel.SetActive(true);
+        if(feedbackText) feedbackText.text = msg;
+        if(loadingSpinner) loadingSpinner.SetActive(false);
+        if(successIcon) successIcon.SetActive(false);
+        if(failureIcon) failureIcon.SetActive(false);
+        if(state == "loading" && loadingSpinner) loadingSpinner.SetActive(true);
+        if(state == "success" && successIcon) successIcon.SetActive(true);
+        if(state == "failure" && failureIcon) failureIcon.SetActive(true);
+        if (state == "failure" || state == "success") hideFeedbackCoroutine = StartCoroutine(HideFeedbackAfterDelay(2f));
+    }
+
+    IEnumerator HideFeedbackAfterDelay(float delay) {
+        yield return new WaitForSeconds(delay);
+        if(feedbackPanel) feedbackPanel.SetActive(false);
+    }
+}

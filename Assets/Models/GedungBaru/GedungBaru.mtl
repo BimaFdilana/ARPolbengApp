@@ -1,0 +1,70 @@
+newmtl Lantai
+Kd 0.86 0.86 0.84
+Ka 0 0 0
+Ks 0.05 0.05 0.05
+d 1
+illum 2
+
+newmtl Dinding_GedungC
+Kd 0.23 0.51 0.77
+Ka 0 0 0
+Ks 0.05 0.05 0.05
+d 1
+illum 2
+
+newmtl Dinding_GKT4
+Kd 0.3 0.65 0.4
+Ka 0 0 0
+Ks 0.05 0.05 0.05
+d 1
+illum 2
+
+newmtl Dinding_BAAK
+Kd 0.55 0.4 0.75
+Ka 0 0 0
+Ks 0.05 0.05 0.05
+d 1
+illum 2
+
+newmtl Dinding_Bahasa
+Kd 0.88 0.54 0.23
+Ka 0 0 0
+Ks 0.05 0.05 0.05
+d 1
+illum 2
+
+newmtl Dinding_Mesin
+Kd 0.7 0.35 0.3
+Ka 0 0 0
+Ks 0.05 0.05 0.05
+d 1
+illum 2
+
+newmtl Atap
+Kd 0.55 0.3 0.25
+Ka 0 0 0
+Ks 0.05 0.05 0.05
+d 1
+illum 2
+
+newmtl Tangga
+Kd 0.95 0.8 0.25
+Ka 0 0 0
+Ks 0.05 0.05 0.05
+d 1
+illum 2
+
+newmtl Jalan
+Kd 0.35 0.35 0.37
+Ka 0 0 0
+Ks 0.05 0.05 0.05
+d 1
+illum 2
+
+newmtl Tanah
+Kd 0.72 0.8 0.62
+Ka 0 0 0
+Ks 0.05 0.05 0.05
+d 1
+illum 2
+

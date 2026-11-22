@@ -1,0 +1,388 @@
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
+using Unity.AI.Navigation;
+using UnityEngine;
+using UnityEngine.AI;
+using UnityEngine.XR.ARFoundation;
+using UnityEngine.XR.ARSubsystems;
+using TMPro;
+using UnityEngine.UI;
+using UnityEngine.SceneManagement;
+using UnityEngine.XR.Management;
+
+/// <summary>
+/// Navigasi indoor AR.
+/// - Mendukung banyak gambar penanda: setiap gambar dipasangkan ke titik KampusAnchor di prefab (nama harus sama).
+/// - Posisi peta dikunci setelah gambar terlacak stabil, supaya garis tidak goyang. Scan gambar lain untuk kalibrasi ulang.
+/// - Tetap kompatibel dengan prefab lama (tanpa KampusAnchor): pusat prefab = posisi gambar.
+/// </summary>
+public class NewIndoorNav : MonoBehaviour
+{
+    [Header("AR System Control (Wajib Diisi)")]
+    [SerializeField] private GameObject arSessionObject; // Drag object 'AR Session'
+    [SerializeField] private GameObject xrOriginObject;  // Drag object 'XR Origin'
+
+    [Header("Main Components")]
+    [SerializeField] private Transform player;
+    [SerializeField] private Button backButton;
+    [SerializeField] private ARTrackedImageManager m_TrackedImageManager;
+    [SerializeField] private GameObject trackedImagePrefab;
+    [SerializeField] private LineRenderer line;
+    [SerializeField] private LineRenderer minimapLine;
+
+    [Header("UI")]
+    [SerializeField] private TMP_Dropdown targetSelector;
+    [SerializeField] private TextMeshProUGUI infoText;
+    [SerializeField] private GameObject infoPanel;
+
+    [Header("Visual Settings")]
+    [SerializeField] private float textureScrollSpeed = 0.5f; // Kecepatan gerak panah
+    [SerializeField] private float arrivalDistance = 3.0f;    // Jarak target muncul (meter)
+
+    [Header("Pelacakan & Jalur")]
+    [Tooltip("Tinggi kamera HP dari lantai (meter), dipakai untuk mencari lantai di bawah pengguna.")]
+    [SerializeField] private float eyeHeight = 1.4f;
+    [Tooltip("Setelah gambar terlacak stabil selama ini (detik), posisi peta dikunci.")]
+    [SerializeField] private float lockAfterSeconds = 2.0f;
+    [Tooltip("Seberapa cepat peta mengikuti gambar sebelum dikunci (0-1).")]
+    [Range(0.05f, 1f)] [SerializeField] private float smoothing = 0.35f;
+    [Tooltip("Interval hitung ulang jalur (detik).")]
+    [SerializeField] private float pathInterval = 0.2f;
+    [Tooltip("Tinggi garis di atas lantai supaya tidak tenggelam.")]
+    [SerializeField] private float lineHeight = 0.1f;
+
+    private readonly List<NavigationTarget> navigationTargets = new List<NavigationTarget>();
+    private NavigationTarget currentTarget;
+
+    private NavMeshSurface navMeshSurface;
+    private NavMeshPath navMeshPath;
+    private GameObject navigationBase;
+    private readonly Dictionary<string, KampusAnchor> anchors = new Dictionary<string, KampusAnchor>();
+
+    // status kunci posisi
+    private string activeImage;
+    private float activeSince;
+    private bool locked;
+    private bool placedOnce;
+    private float lastNavRefresh;
+    private Vector3 lastNavPos;
+    private Quaternion lastNavRot;
+    private float nextPathTime;
+    private Vector3[] corners = new Vector3[0];
+
+    void Start()
+    {
+        navMeshPath = new NavMeshPath();
+        Screen.sleepTimeout = SleepTimeout.NeverSleep;
+
+        if (arSessionObject != null) arSessionObject.SetActive(false);
+        if (xrOriginObject != null) xrOriginObject.SetActive(false);
+        StartCoroutine(InitializeXR());
+
+        if (backButton != null)
+        {
+            backButton.onClick.RemoveAllListeners();
+            backButton.onClick.AddListener(() =>
+            {
+                StopXR();
+                SceneManager.LoadScene("MainMenuScene");
+            });
+        }
+
+        if (line != null) line.positionCount = 0;
+        if (minimapLine != null) minimapLine.positionCount = 0;
+        if (infoPanel != null) infoPanel.SetActive(true);
+        UpdateInfoText("Memuat Sistem AR...");
+    }
+
+    IEnumerator InitializeXR()
+    {
+        yield return null;
+        if (XRGeneralSettings.Instance != null && XRGeneralSettings.Instance.Manager != null)
+        {
+            if (XRGeneralSettings.Instance.Manager.activeLoader == null)
+                yield return XRGeneralSettings.Instance.Manager.InitializeLoader();
+
+            if (XRGeneralSettings.Instance.Manager.activeLoader != null)
+            {
+                XRGeneralSettings.Instance.Manager.StartSubsystems();
+                yield return null;
+                if (xrOriginObject != null) xrOriginObject.SetActive(true);
+                yield return null;
+                if (arSessionObject != null) arSessionObject.SetActive(true);
+                UpdateInfoText("Siap. Arahkan kamera ke gambar penanda...");
+            }
+            else UpdateInfoText("Gagal memuat XR Loader.");
+        }
+    }
+
+    void StopXR()
+    {
+        if (arSessionObject != null) arSessionObject.SetActive(false);
+        if (xrOriginObject != null) xrOriginObject.SetActive(false);
+        if (XRGeneralSettings.Instance != null && XRGeneralSettings.Instance.Manager != null &&
+            XRGeneralSettings.Instance.Manager.isInitializationComplete)
+        {
+            XRGeneralSettings.Instance.Manager.StopSubsystems();
+            XRGeneralSettings.Instance.Manager.DeinitializeLoader();
+        }
+    }
+
+    /// <summary>Lepas kunci posisi, peta akan menyesuaikan lagi dengan gambar berikutnya yang terlihat. Bisa dipasang ke tombol.</summary>
+    public void KalibrasiUlang()
+    {
+        locked = false;
+        activeImage = null;
+        UpdateInfoText("Kalibrasi ulang: arahkan kamera ke gambar penanda...");
+    }
+
+    void Update()
+    {
+        AnimateLine(line);
+        AnimateLine(minimapLine);
+
+        if (navigationBase == null) return;
+        if (currentTarget == null) { UpdateInfoText("Pilih tujuan."); return; }
+        if (Time.time < nextPathTime) return;
+        nextPathTime = Time.time + pathInterval;
+
+        Vector3 origin = player.position + Vector3.down * eyeHeight;
+        if (!NavMesh.SamplePosition(origin, out NavMeshHit hit, 2.0f, NavMesh.AllAreas) &&
+            !NavMesh.SamplePosition(player.position, out hit, 5.0f, NavMesh.AllAreas))
+        {
+            ClearLines();
+            UpdateInfoText("Posisi Anda belum terbaca di peta.\nArahkan kamera ke gambar penanda terdekat.");
+            UpdateTargetVisibility(false);
+            return;
+        }
+
+        NavMesh.CalculatePath(hit.position, currentTarget.transform.position, NavMesh.AllAreas, navMeshPath);
+        if (navMeshPath.status == NavMeshPathStatus.PathInvalid || navMeshPath.corners.Length < 2)
+        {
+            ClearLines();
+            UpdateInfoText("Jalur ke tujuan tidak ditemukan.");
+            UpdateTargetVisibility(false);
+            return;
+        }
+
+        if (corners.Length != navMeshPath.corners.Length) corners = new Vector3[navMeshPath.corners.Length];
+        float pathLength = 0f;
+        for (int i = 0; i < corners.Length; i++)
+        {
+            corners[i] = navMeshPath.corners[i] + Vector3.up * lineHeight;
+            if (i > 0) pathLength += Vector3.Distance(navMeshPath.corners[i - 1], navMeshPath.corners[i]);
+        }
+        SetLine(line, corners);
+        SetLine(minimapLine, corners);
+
+        int lantaiSaatIni = FloorAt(hit.position);
+        string info = $"Tujuan: {currentTarget.Label}";
+        if (!string.IsNullOrEmpty(currentTarget.gedung)) info += $"\n{currentTarget.gedung}, lantai {currentTarget.lantai}";
+        info += $"\nJarak: {pathLength:F0} m";
+        if (currentTarget.lantai > lantaiSaatIni) info += $"\nNaik tangga ke lantai {currentTarget.lantai}";
+        else if (currentTarget.lantai < lantaiSaatIni) info += $"\nTurun tangga ke lantai {currentTarget.lantai}";
+        if (navMeshPath.status == NavMeshPathStatus.PathPartial) info += "\n(Jalur belum lengkap)";
+        UpdateInfoText(info);
+
+        Vector3 flat = player.position - currentTarget.transform.position; flat.y = 0f;
+        bool sameFloor = currentTarget.lantai == lantaiSaatIni || string.IsNullOrEmpty(currentTarget.gedung);
+        UpdateTargetVisibility(sameFloor && flat.magnitude <= arrivalDistance);
+    }
+
+    int FloorAt(Vector3 worldPos)
+    {
+        if (navigationBase == null) return 1;
+        float y = navigationBase.transform.InverseTransformPoint(worldPos).y;
+        return Mathf.Max(1, Mathf.FloorToInt((y + 1.0f) / 3.6f) + 1);
+    }
+
+    void AnimateLine(LineRenderer lr)
+    {
+        if (lr == null || lr.material == null) return;
+        lr.material.SetTextureOffset("_BaseMap", new Vector2(Time.time * -textureScrollSpeed, 0));
+    }
+
+    static void SetLine(LineRenderer lr, Vector3[] pts)
+    {
+        if (lr == null) return;
+        lr.positionCount = pts.Length;
+        lr.SetPositions(pts);
+    }
+
+    void ClearLines()
+    {
+        if (line != null) line.positionCount = 0;
+        if (minimapLine != null) minimapLine.positionCount = 0;
+    }
+
+    private void UpdateTargetVisibility(bool isVisible)
+    {
+        if (currentTarget == null) return;
+        foreach (Renderer r in currentTarget.GetComponentsInChildren<Renderer>()) r.enabled = isVisible;
+    }
+
+    private void UpdateInfoText(string message)
+    {
+        if (infoText != null) infoText.text = message;
+    }
+
+    private void OnEnable() { if (m_TrackedImageManager != null) m_TrackedImageManager.trackablesChanged.AddListener(OnChanged); }
+    private void OnDisable() { if (m_TrackedImageManager != null) m_TrackedImageManager.trackablesChanged.RemoveListener(OnChanged); }
+
+    private void OnChanged(ARTrackablesChangedEventArgs<ARTrackedImage> eventArgs)
+    {
+        foreach (var img in eventArgs.added) HandleImage(img);
+        foreach (var img in eventArgs.updated) HandleImage(img);
+    }
+
+    void HandleImage(ARTrackedImage img)
+    {
+        if (img.trackingState != TrackingState.Tracking) return;
+        string imgName = img.referenceImage.name;
+
+        if (navigationBase == null) CreateBase();
+        if (navigationBase == null) return;
+
+        anchors.TryGetValue(imgName, out KampusAnchor anchor);
+        if (anchors.Count > 0 && anchor == null)
+        {
+            UpdateInfoText($"Gambar '{imgName}' belum terdaftar di peta.");
+            return;
+        }
+
+        // gambar berbeda dari sebelumnya = kalibrasi ulang
+        if (imgName != activeImage)
+        {
+            activeImage = imgName;
+            activeSince = Time.time;
+            locked = false;
+            UpdateInfoText("Gambar terdeteksi, tahan sebentar...");
+        }
+        if (locked) return;
+
+        ComputeBasePose(img, anchor, out Vector3 pos, out Quaternion rot);
+        Transform t = navigationBase.transform;
+        if (!placedOnce) { t.SetPositionAndRotation(pos, rot); placedOnce = true; }
+        else t.SetPositionAndRotation(Vector3.Lerp(t.position, pos, smoothing), Quaternion.Slerp(t.rotation, rot, smoothing));
+        RefreshNavMesh(false);
+
+        if (Time.time - activeSince >= lockAfterSeconds)
+        {
+            t.SetPositionAndRotation(pos, rot);
+            RefreshNavMesh(true);
+            locked = true;
+            if (currentTarget == null) UpdateInfoText("Posisi terkunci. Pilih tujuan.");
+        }
+    }
+
+    void ComputeBasePose(ARTrackedImage img, KampusAnchor anchor, out Vector3 pos, out Quaternion rot)
+    {
+        Vector3 imgPos = img.transform.position;
+        Quaternion imgYaw;
+        if (anchor == null || anchor.modeLama)
+        {
+            imgYaw = Quaternion.Euler(0f, img.transform.rotation.eulerAngles.y, 0f);
+        }
+        else
+        {
+            Vector3 normal = img.transform.up;
+            Vector3 dir = Mathf.Abs(normal.y) < 0.7f ? -normal          // gambar di dinding: arah masuk ke dinding
+                                                       : img.transform.forward; // gambar mendatar: sisi atas gambar
+            dir.y = 0f;
+            if (dir.sqrMagnitude < 1e-4f) dir = Vector3.forward;
+            imgYaw = Quaternion.LookRotation(dir.normalized, Vector3.up);
+        }
+
+        if (anchor == null) { pos = imgPos; rot = imgYaw; return; }
+
+        // posisi & arah anchor relatif terhadap akar prefab (dihitung dari transform lokal berantai)
+        Transform root = navigationBase.transform;
+        Vector3 aLocalPos = root.InverseTransformPoint(anchor.transform.position);
+        float aLocalYaw = (Quaternion.Inverse(root.rotation) * anchor.transform.rotation).eulerAngles.y;
+
+        rot = imgYaw * Quaternion.Inverse(Quaternion.Euler(0f, aLocalYaw, 0f));
+        pos = imgPos - rot * aLocalPos;
+    }
+
+    void RefreshNavMesh(bool force)
+    {
+        if (navMeshSurface == null || navMeshSurface.navMeshData == null) return;
+        Transform t = navigationBase.transform;
+        bool moved = Vector3.Distance(t.position, lastNavPos) > 0.05f || Quaternion.Angle(t.rotation, lastNavRot) > 0.5f;
+        if (!force && (!moved || Time.time - lastNavRefresh < 0.25f)) return;
+        navMeshSurface.RemoveData();
+        navMeshSurface.AddData();
+        lastNavRefresh = Time.time; lastNavPos = t.position; lastNavRot = t.rotation;
+    }
+
+    void CreateBase()
+    {
+        if (trackedImagePrefab == null) { UpdateInfoText("Prefab peta belum diisi."); return; }
+        navigationBase = Instantiate(trackedImagePrefab);
+        navMeshSurface = navigationBase.GetComponentInChildren<NavMeshSurface>();
+        if (navMeshSurface != null && navMeshSurface.navMeshData == null) navMeshSurface.BuildNavMesh(); // prefab lama
+
+        anchors.Clear();
+        foreach (var a in navigationBase.GetComponentsInChildren<KampusAnchor>(true))
+            if (!string.IsNullOrEmpty(a.imageName)) anchors[a.imageName] = a;
+
+        navigationTargets.Clear();
+        navigationTargets.AddRange(navigationBase.GetComponentsInChildren<NavigationTarget>(true));
+        navigationTargets.Sort((a, b) =>
+        {
+            int c = string.Compare(a.gedung ?? "", b.gedung ?? "", System.StringComparison.Ordinal);
+            if (c != 0) return c;
+            c = a.lantai.CompareTo(b.lantai);
+            return c != 0 ? c : NaturalCompare(a.Label, b.Label);
+        });
+        foreach (var t in navigationTargets)
+            foreach (var r in t.GetComponentsInChildren<Renderer>()) r.enabled = false;
+
+        if (targetSelector != null)
+        {
+            targetSelector.ClearOptions();
+            targetSelector.AddOptions(navigationTargets.Select(LabelFor).ToList());
+            targetSelector.onValueChanged.RemoveAllListeners();
+            targetSelector.onValueChanged.AddListener(index =>
+            {
+                UpdateTargetVisibility(false);
+                if (index >= 0 && index < navigationTargets.Count) currentTarget = navigationTargets[index];
+                nextPathTime = 0f;
+            });
+        }
+        if (navigationTargets.Count > 0) currentTarget = navigationTargets[0];
+    }
+
+    static string LabelFor(NavigationTarget t)
+    {
+        if (string.IsNullOrEmpty(t.gedung)) return t.Label;
+        bool namaSudahAdaGedung = t.Label.Contains(t.gedung);
+        string s = namaSudahAdaGedung ? t.Label : $"{t.Label} - {t.gedung}";
+        return t.lantai > 1 ? $"{s} (Lt {t.lantai})" : s;
+    }
+
+    // urutan alami: "Ruang C2" sebelum "Ruang C10"
+    static int NaturalCompare(string a, string b)
+    {
+        int i = 0, j = 0;
+        while (i < a.Length && j < b.Length)
+        {
+            if (char.IsDigit(a[i]) && char.IsDigit(b[j]))
+            {
+                int si = i, sj = j;
+                while (i < a.Length && char.IsDigit(a[i])) i++;
+                while (j < b.Length && char.IsDigit(b[j])) j++;
+                int c = int.Parse(a.Substring(si, i - si)).CompareTo(int.Parse(b.Substring(sj, j - sj)));
+                if (c != 0) return c;
+            }
+            else
+            {
+                int c = a[i].CompareTo(b[j]);
+                if (c != 0) return c;
+                i++; j++;
+            }
+        }
+        return a.Length.CompareTo(b.Length);
+    }
+}

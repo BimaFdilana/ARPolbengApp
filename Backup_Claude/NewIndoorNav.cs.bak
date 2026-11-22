@@ -1,0 +1,241 @@
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
+using Unity.AI.Navigation;
+using UnityEngine;
+using UnityEngine.AI;
+using UnityEngine.XR.ARFoundation;
+using TMPro;
+using UnityEngine.UI;
+using UnityEngine.SceneManagement;
+using UnityEngine.XR.Management;
+
+public class NewIndoorNav : MonoBehaviour
+{
+    [Header("AR System Control (Wajib Diisi)")]
+    [SerializeField] private GameObject arSessionObject; // Drag object 'AR Session'
+    [SerializeField] private GameObject xrOriginObject;  // Drag object 'XR Origin'
+
+    [Header("Main Components")]
+    [SerializeField] private Transform player;
+    [SerializeField] private Button backButton;
+    [SerializeField] private ARTrackedImageManager m_TrackedImageManager;
+    [SerializeField] private GameObject trackedImagePrefab;
+    [SerializeField] private LineRenderer line;
+    [SerializeField] private LineRenderer minimapLine;
+
+    [Header("UI")]
+    [SerializeField] private TMP_Dropdown targetSelector;
+    [SerializeField] private TextMeshProUGUI infoText;
+    [SerializeField] private GameObject infoPanel;
+
+    [Header("Visual Settings")]
+    [SerializeField] private float textureScrollSpeed = 0.5f; // Kecepatan gerak panah
+    [SerializeField] private float arrivalDistance = 3.0f;    // Jarak target muncul (meter)
+
+    private List<NavigationTarget> navigationTargets = new List<NavigationTarget>();
+    private NavigationTarget currentTarget;
+
+    private NavMeshSurface navMeshSurface;
+    private NavMeshPath navMeshPath;
+    private GameObject navigationBase;
+
+    void Start()
+    {
+        navMeshPath = new NavMeshPath();
+        Screen.sleepTimeout = SleepTimeout.NeverSleep;
+
+        // Pastikan objek AR mati dulu saat start
+        if(arSessionObject != null) arSessionObject.SetActive(false);
+        if(xrOriginObject != null) xrOriginObject.SetActive(false);
+
+        // Mulai inisialisasi XR
+        StartCoroutine(InitializeXR());
+
+        if (backButton != null)
+        {
+            backButton.onClick.RemoveAllListeners();
+            backButton.onClick.AddListener(() =>
+            {
+                Debug.Log("Keluar Scene AR - Mematikan Sistem XR...");
+                StopXR(); 
+                SceneManager.LoadScene("MainMenuScene");
+            });
+        }
+
+        if (infoPanel != null) infoPanel.SetActive(true);
+        UpdateInfoText("Memuat Sistem AR...");
+    }
+
+    // --- LOGIKA INIT XR (AMAN DARI CRASH) ---
+    IEnumerator InitializeXR()
+    {
+        yield return null; 
+
+        if (XRGeneralSettings.Instance != null && XRGeneralSettings.Instance.Manager != null)
+        {
+            if (XRGeneralSettings.Instance.Manager.activeLoader == null)
+            {
+                Debug.Log("Menyalakan XR Loader...");
+                yield return XRGeneralSettings.Instance.Manager.InitializeLoader();
+            }
+
+            if (XRGeneralSettings.Instance.Manager.activeLoader != null)
+            {
+                Debug.Log("Menyalakan Subsystems...");
+                XRGeneralSettings.Instance.Manager.StartSubsystems();
+                
+                yield return null; 
+
+                // Nyalakan Origin DULUAN
+                if(xrOriginObject != null) xrOriginObject.SetActive(true);
+                yield return null;
+                // Baru AR Session
+                if(arSessionObject != null) arSessionObject.SetActive(true);
+                
+                UpdateInfoText("Siap. Silakan scan gambar...");
+            }
+            else
+            {
+                UpdateInfoText("Gagal memuat XR Loader.");
+            }
+        }
+    }
+
+    void StopXR()
+    {
+        if(arSessionObject != null) arSessionObject.SetActive(false);
+        if(xrOriginObject != null) xrOriginObject.SetActive(false);
+
+        if (XRGeneralSettings.Instance != null && XRGeneralSettings.Instance.Manager != null)
+        {
+            if (XRGeneralSettings.Instance.Manager.isInitializationComplete)
+            {
+                XRGeneralSettings.Instance.Manager.StopSubsystems();
+                XRGeneralSettings.Instance.Manager.DeinitializeLoader();
+            }
+        }
+    }
+
+    void Update()
+    {
+        // --- 1. ANIMASI GARIS (PANAH BERGERAK) ---
+        if (line != null && line.material != null)
+        {
+            // Menggeser tekstur agar terlihat mengalir
+            float offset = Time.time * -textureScrollSpeed;
+            // Gunakan "_BaseMap" untuk URP. Jika tidak gerak, coba ganti string jadi "_MainTex"
+            line.material.SetTextureOffset("_BaseMap", new Vector2(offset, 0));
+        }
+
+        if (navigationBase == null) return;
+        if (navMeshSurface == null) { UpdateInfoText("Error: NavMeshSurface null"); return; }
+        if (currentTarget == null) { UpdateInfoText("Pilih target tujuan."); return; }
+
+        NavMeshHit hit;
+        // Cari lantai di bawah kamera
+        if (NavMesh.SamplePosition(player.position, out hit, 5.0f, NavMesh.AllAreas))
+        {
+            NavMesh.CalculatePath(hit.position, currentTarget.transform.position, NavMesh.AllAreas, navMeshPath);
+
+            if (navMeshPath.status == NavMeshPathStatus.PathComplete)
+            {
+                // 1. Gambar Garis AR (Yang sudah ada)
+                line.positionCount = navMeshPath.corners.Length;
+                line.SetPositions(navMeshPath.corners);
+                
+                // 2. Gambar Garis Minimap (TAMBAHAN BARU)
+                if (minimapLine != null)
+                {
+                    minimapLine.positionCount = navMeshPath.corners.Length;
+                    minimapLine.SetPositions(navMeshPath.corners);
+                    
+                    // (Opsional) Copy animasi gerak tekstur ke minimap line juga
+                    if (minimapLine.material != null)
+                    {
+                        float offset = Time.time * -textureScrollSpeed;
+                        minimapLine.material.SetTextureOffset("_BaseMap", new Vector2(offset, 0));
+                    }
+                }
+                
+                // Hitung Jarak & Info
+                float distance = Vector3.Distance(player.position, currentTarget.transform.position);
+                UpdateInfoText($"Tujuan: {currentTarget.name}\nJarak: {distance:F1} m");
+
+                bool shouldShow = distance <= arrivalDistance;
+                UpdateTargetVisibility(shouldShow);
+            }
+            else
+            {
+                // Hapus kedua garis jika jalur gagal
+                line.positionCount = 0;
+                if (minimapLine != null) minimapLine.positionCount = 0; // <--- TAMBAHAN
+                
+                UpdateInfoText("Jalur terputus/terhalang.");
+                UpdateTargetVisibility(false);
+            }
+        }
+        else
+        {
+            line.positionCount = 0;
+            UpdateInfoText("Posisikan kamera ke area lantai/peta.");
+            UpdateTargetVisibility(false);
+        }
+    }
+
+    // --- FUNGSI HELPER VISIBILITY ---
+    private void UpdateTargetVisibility(bool isVisible)
+    {
+        if (currentTarget == null) return;
+
+        // Cari semua renderer (Cube, Panah, dll) di dalam target
+        Renderer[] renderers = currentTarget.GetComponentsInChildren<Renderer>();
+        foreach (Renderer r in renderers)
+        {
+            r.enabled = isVisible;
+        }
+    }
+
+    private void UpdateInfoText(string message)
+    {
+        if (infoText != null) infoText.text = message;
+    }
+
+    private void OnEnable() => m_TrackedImageManager.trackablesChanged.AddListener(OnChanged);
+    private void OnDisable() => m_TrackedImageManager.trackablesChanged.RemoveListener(OnChanged);
+
+    private void OnChanged(ARTrackablesChangedEventArgs<ARTrackedImage> eventArgs)
+    {
+        foreach (var newImage in eventArgs.added)
+        {
+            UpdateInfoText("Gambar Terdeteksi!");
+            navigationBase = Instantiate(trackedImagePrefab);
+            navMeshSurface = navigationBase.GetComponentInChildren<NavMeshSurface>();
+            if (navMeshSurface != null) navMeshSurface.BuildNavMesh();
+
+            navigationTargets.Clear();
+            navigationTargets = navigationBase.GetComponentsInChildren<NavigationTarget>().ToList();
+            navigationTargets.Sort((a, b) => a.name.CompareTo(b.name));
+
+            if (targetSelector != null)
+            {
+                targetSelector.ClearOptions();
+                List<string> names = new List<string>();
+                foreach (var target in navigationTargets) names.Add(target.name);
+                targetSelector.AddOptions(names);
+                targetSelector.onValueChanged.RemoveAllListeners();
+                targetSelector.onValueChanged.AddListener((index) => {
+                    if (index >= 0 && index < navigationTargets.Count) currentTarget = navigationTargets[index];
+                });
+            }
+            if (navigationTargets.Count > 0) currentTarget = navigationTargets[0];
+        }
+        foreach (var updatedImage in eventArgs.updated)
+        {
+            if (navigationBase != null)
+            {
+                navigationBase.transform.SetPositionAndRotation(updatedImage.pose.position, Quaternion.Euler(0, updatedImage.pose.rotation.eulerAngles.y, 0));
+            }
+        }
+    }
+}

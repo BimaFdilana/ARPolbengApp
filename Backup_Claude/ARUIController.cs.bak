@@ -1,0 +1,78 @@
+using UnityEngine;
+using UnityEngine.UI;
+using UnityEngine.SceneManagement;
+using Vuforia; // Wajib untuk akses kamera
+using TMPro;
+
+public class ARUIController : MonoBehaviour
+{
+    [Header("UI References")]
+    public Button backButton;
+    public Button flashButton;
+    public TextMeshProUGUI flashButtonText; // Opsional: untuk ganti teks ON/OFF
+
+    private bool isFlashOn = false;
+
+    void Start()
+    {
+        // Setup Listener Tombol
+        if (backButton != null)
+        {
+            backButton.onClick.AddListener(OnBackButtonClicked);
+        }
+
+        if (flashButton != null)
+        {
+            flashButton.onClick.AddListener(OnFlashButtonClicked);
+        }
+    }
+
+    // --- FUNGSI KEMBALI ---
+    void OnBackButtonClicked()
+    {
+        // Pastikan flash mati sebelum keluar scene (penting!)
+        if (isFlashOn)
+        {
+            SetFlashlight(false);
+        }
+
+        // Kembali ke daftar misi
+        SceneManager.LoadScene("MissionScene");
+    }
+
+    // --- FUNGSI SENTER (FLASHLIGHT) ---
+    void OnFlashButtonClicked()
+    {
+        // Toggle status (Hidup -> Mati, Mati -> Hidup)
+        isFlashOn = !isFlashOn;
+        SetFlashlight(isFlashOn);
+    }
+
+    void SetFlashlight(bool enable)
+    {
+        // Akses Kamera Vuforia
+        var cameraDevice = VuforiaBehaviour.Instance.CameraDevice;
+
+        if (cameraDevice != null)
+        {
+            // Nyalakan/Matikan Flash
+            bool success = cameraDevice.SetFlash(enable);
+
+            if (success)
+            {
+                // Ubah tampilan tombol jika berhasil
+                if (flashButtonText != null)
+                {
+                    flashButtonText.text = enable ? "OFF" : "⚡"; // Ganti teks
+                    flashButtonText.color = enable ? Color.yellow : Color.white;
+                }
+            }
+            else
+            {
+                Debug.LogWarning("Gagal menyalakan flash (Mungkin tidak didukung device)");
+                // Kembalikan state jika gagal
+                isFlashOn = !enable; 
+            }
+        }
+    }
+}

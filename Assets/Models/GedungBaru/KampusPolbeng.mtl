@@ -1,0 +1,126 @@
+newmtl Lantai
+Kd 0.86 0.86 0.84
+Ka 0 0 0
+Ks 0.05 0.05 0.05
+d 1
+illum 2
+
+newmtl Dinding_GedungC
+Kd 0.93 0.9 0.82
+Ka 0 0 0
+Ks 0.05 0.05 0.05
+d 1
+illum 2
+
+newmtl Dinding_GKT4
+Kd 0.45 0.66 0.74
+Ka 0 0 0
+Ks 0.05 0.05 0.05
+d 1
+illum 2
+
+newmtl Dinding_BAAK
+Kd 0.8 0.8 0.84
+Ka 0 0 0
+Ks 0.05 0.05 0.05
+d 1
+illum 2
+
+newmtl Dinding_Bahasa
+Kd 0.52 0.72 0.7
+Ka 0 0 0
+Ks 0.05 0.05 0.05
+d 1
+illum 2
+
+newmtl Dinding_Mesin
+Kd 0.7 0.35 0.3
+Ka 0 0 0
+Ks 0.05 0.05 0.05
+d 1
+illum 2
+
+newmtl Atap
+Kd 0.55 0.3 0.25
+Ka 0 0 0
+Ks 0.05 0.05 0.05
+d 1
+illum 2
+
+newmtl Atap_Merah
+Kd 0.78 0.33 0.33
+Ka 0 0 0
+Ks 0.05 0.05 0.05
+d 1
+illum 2
+
+newmtl Tangga
+Kd 0.95 0.8 0.25
+Ka 0 0 0
+Ks 0.05 0.05 0.05
+d 1
+illum 2
+
+newmtl Jalan
+Kd 0.35 0.35 0.37
+Ka 0 0 0
+Ks 0.05 0.05 0.05
+d 1
+illum 2
+
+newmtl Paving
+Kd 0.7 0.68 0.64
+Ka 0 0 0
+Ks 0.05 0.05 0.05
+d 1
+illum 2
+
+newmtl Tanah
+Kd 0.72 0.8 0.62
+Ka 0 0 0
+Ks 0.05 0.05 0.05
+d 1
+illum 2
+
+newmtl Sekat_GKT4
+Kd 0.3 0.5 0.6
+Ka 0 0 0
+Ks 0.05 0.05 0.05
+d 1
+illum 2
+
+newmtl Sekat_TI
+Kd 0.55 0.7 0.9
+Ka 0 0 0
+Ks 0.05 0.05 0.05
+d 1
+illum 2
+
+newmtl Sekat_Perpus
+Kd 0.95 0.75 0.5
+Ka 0 0 0
+Ks 0.05 0.05 0.05
+d 1
+illum 2
+
+newmtl Dinding_TI
+Kd 0.2 0.42 0.68
+Ka 0 0 0
+Ks 0.05 0.05 0.05
+d 1
+illum 2
+
+newmtl Dinding_Perpus
+Kd 0.85 0.52 0.22
+Ka 0 0 0
+Ks 0.05 0.05 0.05
+d 1
+illum 2
+
+newmtl Jalan_Lama
+Kd 0.62 0.63 0.6
+Ka 0 0 0
+Ks 0.05 0.05 0.05
+d 1
+illum 2
+
