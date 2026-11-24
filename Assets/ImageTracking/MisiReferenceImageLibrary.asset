@@ -1,0 +1,129 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 848409ee8ba454f42a5ddff137688a27, type: 3}
+  m_Name: MisiReferenceImageLibrary
+  m_EditorClassIdentifier: 
+  m_GuidLow: 4695213895633370188
+  m_GuidHigh: 10254448281297956266
+  m_DataStore:
+    m_Storage: []
+  m_Images:
+  - m_SerializedGuid:
+      m_GuidLow: 5334294039962198262
+      m_GuidHigh: 11261048467493813907
+    m_SerializedTextureGuid:
+      m_GuidLow: 15293150351415340450
+      m_GuidHigh: 673504095292585753
+    m_Size: {x: 0.5, y: 0.28881836}
+    m_SpecifySize: 1
+    m_Name: Gedung1
+    m_Texture: {fileID: 2800000, guid: d0c06da22f37d43c1977af0268c45809, type: 3}
+  - m_SerializedGuid:
+      m_GuidLow: 4640093121028063902
+      m_GuidHigh: 16223963364396752306
+    m_SerializedTextureGuid:
+      m_GuidLow: 14175447253334964361
+      m_GuidHigh: 13515335227624246026
+    m_Size: {x: 0.5, y: 0.27661133}
+    m_SpecifySize: 1
+    m_Name: Gedung2
+    m_Texture: {fileID: 2800000, guid: 135138894e2cc4b90acbdd3ec81d90bb, type: 3}
+  - m_SerializedGuid:
+      m_GuidLow: 5349103380976006104
+      m_GuidHigh: 1823016687168869558
+    m_SerializedTextureGuid:
+      m_GuidLow: 16495112850004427687
+      m_GuidHigh: 2063017829415215081
+    m_Size: {x: 0.5, y: 0.28833008}
+    m_SpecifySize: 1
+    m_Name: Gedung3
+    m_Texture: {fileID: 2800000, guid: 027ec3a769bee4eae95f9717c94fa11c, type: 3}
+  - m_SerializedGuid:
+      m_GuidLow: 5254423959588744657
+      m_GuidHigh: 7076633478561010096
+    m_SerializedTextureGuid:
+      m_GuidLow: 9567701786116366563
+      m_GuidHigh: 11645964156702843193
+    m_Size: {x: 0.5, y: 0.2878418}
+    m_SpecifySize: 1
+    m_Name: Gedung4
+    m_Texture: {fileID: 2800000, guid: 265620e34e1584c739613493b2c69ea1, type: 3}
+  - m_SerializedGuid:
+      m_GuidLow: 5643467897848142367
+      m_GuidHigh: 5097030465467169932
+    m_SerializedTextureGuid:
+      m_GuidLow: 16458245427704161145
+      m_GuidHigh: 2998733621199574459
+    m_Size: {x: 0.15, y: 0.22500001}
+    m_SpecifySize: 1
+    m_Name: Image1
+    m_Texture: {fileID: 2800000, guid: 5880e3796f04e467bb159f2b57a49d29, type: 3}
+  - m_SerializedGuid:
+      m_GuidLow: 5229093372617922120
+      m_GuidHigh: 5615887254948368268
+    m_SerializedTextureGuid:
+      m_GuidLow: 17642589299227929813
+      m_GuidHigh: 2586373262247633451
+    m_Size: {x: 0.15, y: 0.22500001}
+    m_SpecifySize: 1
+    m_Name: Image2
+    m_Texture: {fileID: 2800000, guid: 4296acd5117ef4d72ba2d660c7a4e423, type: 3}
+  - m_SerializedGuid:
+      m_GuidLow: 4776960660819185154
+      m_GuidHigh: 2460005229910617490
+    m_SerializedTextureGuid:
+      m_GuidLow: 8390406824120011138
+      m_GuidHigh: 7199358596021084538
+    m_Size: {x: 0.15, y: 0.22500001}
+    m_SpecifySize: 1
+    m_Name: Image3
+    m_Texture: {fileID: 2800000, guid: 60afc982b68d74707ae17dce7f42e963, type: 3}
+  - m_SerializedGuid:
+      m_GuidLow: 5476209104887691145
+      m_GuidHigh: 2414854898474850214
+    m_SerializedTextureGuid:
+      m_GuidLow: 7243862523239282526
+      m_GuidHigh: 7844790387164122507
+    m_Size: {x: 0.15, y: 0.22500001}
+    m_SpecifySize: 1
+    m_Name: Image4
+    m_Texture: {fileID: 2800000, guid: d371375e5e9564878b0d512c4b4bde6c, type: 3}
+  - m_SerializedGuid:
+      m_GuidLow: 4903273176736769597
+      m_GuidHigh: 8533947215522480300
+    m_SerializedTextureGuid:
+      m_GuidLow: 3763025808867553079
+      m_GuidHigh: 1269997526794197848
+    m_Size: {x: 0.15, y: 0.22500001}
+    m_SpecifySize: 1
+    m_Name: Image5
+    m_Texture: {fileID: 2800000, guid: 2a2d6f37f4093438585b319a05f09f11, type: 3}
+  - m_SerializedGuid:
+      m_GuidLow: 4879237042253194355
+      m_GuidHigh: 157944446787853962
+    m_SerializedTextureGuid:
+      m_GuidLow: 17619727915418544274
+      m_GuidHigh: 13545615152598542970
+    m_Size: {x: 0.15, y: 0.22500001}
+    m_SpecifySize: 1
+    m_Name: Image6
+    m_Texture: {fileID: 2800000, guid: 8d8e6892d92ff4857aeac8aa36b1fbbb, type: 3}
+  - m_SerializedGuid:
+      m_GuidLow: 5136011438866343888
+      m_GuidHigh: 6856306151680386445
+    m_SerializedTextureGuid:
+      m_GuidLow: 3781398290622763790
+      m_GuidHigh: 12508802186962626314
+    m_Size: {x: 0.15, y: 0.15136613}
+    m_SpecifySize: 1
+    m_Name: Image7
+    m_Texture: {fileID: 2800000, guid: ead6d30e39b5347a0a678987503198ad, type: 3}

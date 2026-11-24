@@ -52,6 +52,13 @@ public class NewIndoorNav : MonoBehaviour
     [Tooltip("Tinggi garis di atas lantai supaya tidak tenggelam.")]
     [SerializeField] private float lineHeight = 0.1f;
 
+    [Header("Mode Uji Editor (hanya berjalan di Unity Editor, tidak ikut ke HP)")]
+    [Tooltip("Saat Play di Editor: tekan T untuk pura-pura memindai gambar, WASD untuk berjalan, klik kanan + geser untuk menoleh, Shift untuk cepat.")]
+    [SerializeField] private bool modeUjiEditor = true;
+    [Tooltip("Nama gambar penanda yang dipakai saat menekan T.")]
+    [SerializeField] private string gambarUjiEditor = "Target_Lobi";
+    [SerializeField] private float kecepatanJalanUji = 1.5f;
+
     private readonly List<NavigationTarget> navigationTargets = new List<NavigationTarget>();
     private NavigationTarget currentTarget;
 
@@ -78,6 +85,10 @@ public class NewIndoorNav : MonoBehaviour
 
         if (arSessionObject != null) arSessionObject.SetActive(false);
         if (xrOriginObject != null) xrOriginObject.SetActive(false);
+#if UNITY_EDITOR
+        if (modeUjiEditor) { StartEditorTest(); }
+        else
+#endif
         StartCoroutine(InitializeXR());
 
         if (backButton != null)
@@ -93,6 +104,9 @@ public class NewIndoorNav : MonoBehaviour
         if (line != null) line.positionCount = 0;
         if (minimapLine != null) minimapLine.positionCount = 0;
         if (infoPanel != null) infoPanel.SetActive(true);
+#if UNITY_EDITOR
+        if (modeUjiEditor) { UpdateInfoText(EditorHelp); return; }
+#endif
         UpdateInfoText("Memuat Sistem AR...");
     }
 
@@ -141,6 +155,9 @@ public class NewIndoorNav : MonoBehaviour
     {
         AnimateLine(line);
         AnimateLine(minimapLine);
+#if UNITY_EDITOR
+        if (modeUjiEditor) EditorTestUpdate();
+#endif
 
         if (navigationBase == null) return;
         if (currentTarget == null) { UpdateInfoText("Pilih tujuan."); return; }
@@ -240,6 +257,7 @@ public class NewIndoorNav : MonoBehaviour
     {
         if (img.trackingState != TrackingState.Tracking) return;
         string imgName = img.referenceImage.name;
+        if (string.IsNullOrEmpty(imgName)) return; // gambar tanpa nama (mis. dari XR Simulation)
 
         if (navigationBase == null) CreateBase();
         if (navigationBase == null) return;
@@ -262,6 +280,11 @@ public class NewIndoorNav : MonoBehaviour
         if (locked) return;
 
         ComputeBasePose(img, anchor, out Vector3 pos, out Quaternion rot);
+        ApplyBasePose(pos, rot);
+    }
+
+    void ApplyBasePose(Vector3 pos, Quaternion rot)
+    {
         Transform t = navigationBase.transform;
         if (!placedOnce) { t.SetPositionAndRotation(pos, rot); placedOnce = true; }
         else t.SetPositionAndRotation(Vector3.Lerp(t.position, pos, smoothing), Quaternion.Slerp(t.rotation, rot, smoothing));
@@ -294,6 +317,11 @@ public class NewIndoorNav : MonoBehaviour
             imgYaw = Quaternion.LookRotation(dir.normalized, Vector3.up);
         }
 
+        PoseFromAnchor(anchor, imgPos, imgYaw, out pos, out rot);
+    }
+
+    void PoseFromAnchor(KampusAnchor anchor, Vector3 imgPos, Quaternion imgYaw, out Vector3 pos, out Quaternion rot)
+    {
         if (anchor == null) { pos = imgPos; rot = imgYaw; return; }
 
         // posisi & arah anchor relatif terhadap akar prefab (dihitung dari transform lokal berantai)
@@ -353,6 +381,90 @@ public class NewIndoorNav : MonoBehaviour
         }
         if (navigationTargets.Count > 0) currentTarget = navigationTargets[0];
     }
+
+#if UNITY_EDITOR
+    // ======================= MODE UJI EDITOR =======================
+    const string EditorHelp = "MODE UJI EDITOR\nT = pindai gambar | WASD = jalan | Klik kanan + geser = menoleh | Shift = cepat";
+    private float yawUji, pitchUji;
+
+    void StartEditorTest()
+    {
+        // Kamera dipakai tanpa ARCore: aktifkan XR Origin, matikan komponen yang butuh perangkat AR.
+        if (xrOriginObject != null) xrOriginObject.SetActive(true);
+        if (m_TrackedImageManager != null) m_TrackedImageManager.enabled = false; // "pindai" diganti tombol T
+        if (player != null)
+        {
+            foreach (var b in player.GetComponents<Behaviour>())
+            {
+                string n = b.GetType().Name;
+                if (n == "TrackedPoseDriver" || n == "ARCameraBackground" || n == "ARCameraManager") b.enabled = false;
+            }
+            var cam = player.GetComponent<Camera>();
+            int minimapLayer = LayerMask.NameToLayer("Minimap");
+            if (cam != null && minimapLayer >= 0) cam.cullingMask |= 1 << minimapLayer; // gedung terlihat di Game view
+            if (cam != null) { cam.clearFlags = CameraClearFlags.SolidColor; cam.backgroundColor = new Color(0.55f, 0.7f, 0.85f); }
+            player.position = new Vector3(0f, eyeHeight, 0f);
+            player.rotation = Quaternion.identity;
+            yawUji = 0f; pitchUji = 0f;
+        }
+    }
+
+    void EditorTestUpdate()
+    {
+        var kb = UnityEngine.InputSystem.Keyboard.current;
+        var mouse = UnityEngine.InputSystem.Mouse.current;
+        if (kb == null || player == null) return;
+
+        if (kb.tKey.wasPressedThisFrame) SimulateScan();
+
+        // menoleh
+        if (mouse != null && mouse.rightButton.isPressed)
+        {
+            Vector2 d = mouse.delta.ReadValue() * 0.15f;
+            yawUji += d.x; pitchUji = Mathf.Clamp(pitchUji - d.y, -80f, 80f);
+        }
+        player.rotation = Quaternion.Euler(pitchUji, yawUji, 0f);
+
+        // berjalan (dibatasi NavMesh supaya tidak menembus dinding, naik tangga otomatis)
+        Vector3 input = Vector3.zero;
+        if (kb.wKey.isPressed) input.z += 1; if (kb.sKey.isPressed) input.z -= 1;
+        if (kb.dKey.isPressed) input.x += 1; if (kb.aKey.isPressed) input.x -= 1;
+        if (input == Vector3.zero) return;
+        float speed = kecepatanJalanUji * (kb.leftShiftKey.isPressed ? 4f : 1f);
+        Vector3 dir = Quaternion.Euler(0f, yawUji, 0f) * input.normalized;
+        Vector3 floor = player.position + Vector3.down * eyeHeight;
+        Vector3 next = floor + dir * speed * Time.deltaTime;
+
+        if (navigationBase != null && NavMesh.SamplePosition(floor, out NavMeshHit here, 1.0f, NavMesh.AllAreas))
+        {
+            if (NavMesh.Raycast(here.position, next, out NavMeshHit block, NavMesh.AllAreas)) next = block.position;
+            if (NavMesh.SamplePosition(next, out NavMeshHit there, 1.0f, NavMesh.AllAreas)) next = there.position;
+        }
+        player.position = next + Vector3.up * eyeHeight;
+    }
+
+    void SimulateScan()
+    {
+        if (navigationBase == null) CreateBase();
+        if (navigationBase == null) return;
+        anchors.TryGetValue(gambarUjiEditor, out KampusAnchor anchor);
+        if (anchors.Count > 0 && anchor == null) { UpdateInfoText($"Gambar uji '{gambarUjiEditor}' tidak ada di peta."); return; }
+
+        // Pengguna berdiri di depan gambar: gambar 1 m di depan kamera.
+        Quaternion yaw = Quaternion.Euler(0f, yawUji, 0f);
+        Vector3 floor = player.position + Vector3.down * eyeHeight;
+        float tinggiGambar = (anchor != null && !anchor.modeLama) ? anchor.transform.localPosition.y : 0f;
+        Vector3 imgPos = floor + yaw * Vector3.forward * 1.0f + Vector3.up * tinggiGambar;
+
+        navigationBase.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
+        PoseFromAnchor(anchor, imgPos, yaw, out Vector3 pos, out Quaternion rot);
+        navigationBase.transform.SetPositionAndRotation(pos, rot);
+        placedOnce = true; locked = true; activeImage = gambarUjiEditor;
+        RefreshNavMesh(true);
+        nextPathTime = 0f;
+        Debug.Log($"[Mode Uji] Peta ditempatkan dari '{gambarUjiEditor}'.");
+    }
+#endif
 
     static string LabelFor(NavigationTarget t)
     {

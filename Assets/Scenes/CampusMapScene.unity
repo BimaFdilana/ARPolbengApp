@@ -228,7 +228,7 @@ MonoBehaviour:
   player: {fileID: 1921031510}
   backButton: {fileID: 1568077372}
   m_TrackedImageManager: {fileID: 1897478919}
-  trackedImagePrefab: {fileID: 1283193786262794464, guid: f1e358c49f50a4a21a46586482463787, type: 3}
+  trackedImagePrefab: {fileID: 316875553490381102, guid: f5abdeceb1ae84232956c52d3d3c50f9, type: 3}
   line: {fileID: 1461160084}
   minimapLine: {fileID: 1999817486}
   targetSelector: {fileID: 911047362}
@@ -236,6 +236,11 @@ MonoBehaviour:
   infoPanel: {fileID: 1210412155}
   textureScrollSpeed: 1.5
   arrivalDistance: 3
+  eyeHeight: 1.4
+  lockAfterSeconds: 2
+  smoothing: 0.35
+  pathInterval: 0.2
+  lineHeight: 0.1
 --- !u!1 &218569522
 GameObject:
   m_ObjectHideFlags: 0

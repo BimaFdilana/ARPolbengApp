@@ -27,3 +27,73 @@ MonoBehaviour:
     m_SpecifySize: 1
     m_Name: Target_Lobi
     m_Texture: {fileID: 0}
+  - m_SerializedGuid:
+      m_GuidLow: 5237238586768654896
+      m_GuidHigh: 17005094878598437050
+    m_SerializedTextureGuid:
+      m_GuidLow: 8379447074342960145
+      m_GuidHigh: 11846519860801157161
+    m_Size: {x: 0.18, y: 0.18}
+    m_SpecifySize: 1
+    m_Name: Target_BAAK
+    m_Texture: {fileID: 2800000, guid: c865fc11c6b7744929b8a93f0c4b67a4, type: 3}
+  - m_SerializedGuid:
+      m_GuidLow: 5735614070284843754
+      m_GuidHigh: 6433665348903909289
+    m_SerializedTextureGuid:
+      m_GuidLow: 9512593964398478196
+      m_GuidHigh: 2377560747855075738
+    m_Size: {x: 0.18, y: 0.18}
+    m_SpecifySize: 1
+    m_Name: Target_Bahasa
+    m_Texture: {fileID: 2800000, guid: 8c7f037485cf84039a59d03fe7cafe20, type: 3}
+  - m_SerializedGuid:
+      m_GuidLow: 5651611447350974824
+      m_GuidHigh: 14855241253127480211
+    m_SerializedTextureGuid:
+      m_GuidLow: 3795952100510214492
+      m_GuidHigh: 8158868879389521786
+    m_Size: {x: 0.18, y: 0.18}
+    m_SpecifySize: 1
+    m_Name: Target_GedungC
+    m_Texture: {fileID: 2800000, guid: d74f295cee5234ad7a7700ad04203a71, type: 3}
+  - m_SerializedGuid:
+      m_GuidLow: 5329416326980109172
+      m_GuidHigh: 14604565307738085292
+    m_SerializedTextureGuid:
+      m_GuidLow: 2658792308804825777
+      m_GuidHigh: 17726602562520464537
+    m_Size: {x: 0.18, y: 0.18}
+    m_SpecifySize: 1
+    m_Name: Target_GedungElektro
+    m_Texture: {fileID: 2800000, guid: 99da32b1ed8424e599bc8f6d1c8b01f6, type: 3}
+  - m_SerializedGuid:
+      m_GuidLow: 5186389922821727328
+      m_GuidHigh: 12508585384278646919
+    m_SerializedTextureGuid:
+      m_GuidLow: 2600006636769322551
+      m_GuidHigh: 15671461586581849337
+    m_Size: {x: 0.18, y: 0.18}
+    m_SpecifySize: 1
+    m_Name: Target_GedungTI
+    m_Texture: {fileID: 2800000, guid: be4b263714422415f904643348377cd9, type: 3}
+  - m_SerializedGuid:
+      m_GuidLow: 5557525568525089126
+      m_GuidHigh: 12891295088845454465
+    m_SerializedTextureGuid:
+      m_GuidLow: 9568873437422923199
+      m_GuidHigh: 1582875272283124571
+    m_Size: {x: 0.18, y: 0.18}
+    m_SpecifySize: 1
+    m_Name: Target_GKT4
+    m_Texture: {fileID: 2800000, guid: 7a43adbf77b184cb5b732f78ac80f715, type: 3}
+  - m_SerializedGuid:
+      m_GuidLow: 4882987137433944821
+      m_GuidHigh: 3650130065279061638
+    m_SerializedTextureGuid:
+      m_GuidLow: 15333719293092428201
+      m_GuidHigh: 9938062689771545976
+    m_Size: {x: 0.18, y: 0.18}
+    m_SpecifySize: 1
+    m_Name: Target_Mesin
+    m_Texture: {fileID: 2800000, guid: 9e53f9a95074d4cc786565bb5c17eb89, type: 3}
