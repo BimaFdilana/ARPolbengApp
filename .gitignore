@@ -112,3 +112,6 @@ InitTestScene*.unity*
 
 # Auto-generated cache in Assets folder
 /[Aa]ssets/[Ss]ceneDependencyCache*
+
+# Paket Vuforia lama (132 MB, melebihi batas GitHub, sudah tidak dipakai)
+/Packages/com.ptc.vuforia.engine-*.tgz
