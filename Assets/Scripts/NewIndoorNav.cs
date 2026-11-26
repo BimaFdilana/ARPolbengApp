@@ -51,6 +51,13 @@ public class NewIndoorNav : MonoBehaviour
     [SerializeField] private float pathInterval = 0.2f;
     [Tooltip("Tinggi garis di atas lantai supaya tidak tenggelam.")]
     [SerializeField] private float lineHeight = 0.1f;
+    [Header("Garis di Kamera AR")]
+    [Tooltip("Lebar garis navigasi di layar kamera (meter).")]
+    [SerializeField] private float arLineWidth = 0.3f;
+    [Tooltip("Tinggi garis AR di atas perkiraan lantai tempat pengguna berdiri (meter).")]
+    [SerializeField] private float arLineHeight = 0.05f;
+    [Tooltip("Garis AR digeser agar titik awalnya selalu di kaki pengguna, sehingga tetap terlihat walau tinggi gambar penanda tidak persis.")]
+    [SerializeField] private bool garisMengikutiLantaiPengguna = true;
 
     [Header("Mode Uji Editor (hanya berjalan di Unity Editor, tidak ikut ke HP)")]
     [Tooltip("Saat Play di Editor: tekan T untuk pura-pura memindai gambar, WASD untuk berjalan, klik kanan + geser untuk menoleh, Shift untuk cepat.")]
@@ -77,10 +84,12 @@ public class NewIndoorNav : MonoBehaviour
     private Quaternion lastNavRot;
     private float nextPathTime;
     private Vector3[] corners = new Vector3[0];
+    private Vector3[] arCorners = new Vector3[0];
 
     void Start()
     {
         navMeshPath = new NavMeshPath();
+        SiapkanGarisAR();
         Screen.sleepTimeout = SleepTimeout.NeverSleep;
 
         if (arSessionObject != null) arSessionObject.SetActive(false);
@@ -190,8 +199,16 @@ public class NewIndoorNav : MonoBehaviour
             corners[i] = navMeshPath.corners[i] + Vector3.up * lineHeight;
             if (i > 0) pathLength += Vector3.Distance(navMeshPath.corners[i - 1], navMeshPath.corners[i]);
         }
-        SetLine(line, corners);
         SetLine(minimapLine, corners);
+
+        // Garis di kamera: digeser naik/turun supaya titik awalnya di lantai tempat pengguna berdiri
+        if (arCorners.Length != corners.Length) arCorners = new Vector3[corners.Length];
+        float geser = 0f;
+        if (garisMengikutiLantaiPengguna && navMeshPath.corners.Length > 0)
+            geser = (player.position.y - eyeHeight + arLineHeight) - navMeshPath.corners[0].y;
+        for (int i = 0; i < arCorners.Length; i++)
+            arCorners[i] = garisMengikutiLantaiPengguna ? navMeshPath.corners[i] + Vector3.up * geser : corners[i];
+        SetLine(line, arCorners);
 
         int lantaiSaatIni = FloorAt(hit.position);
         string info = $"Tujuan: {currentTarget.Label}";
@@ -205,6 +222,29 @@ public class NewIndoorNav : MonoBehaviour
         Vector3 flat = player.position - currentTarget.transform.position; flat.y = 0f;
         bool sameFloor = currentTarget.lantai == lantaiSaatIni || string.IsNullOrEmpty(currentTarget.gedung);
         UpdateTargetVisibility(sameFloor && flat.magnitude <= arrivalDistance);
+    }
+
+    void SiapkanGarisAR()
+    {
+        if (line == null) return;
+        line.enabled = true;
+        line.gameObject.SetActive(true);
+        line.useWorldSpace = true;
+        line.alignment = LineAlignment.View;
+        line.widthMultiplier = arLineWidth;
+        line.numCornerVertices = 4;
+        line.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        line.receiveShadows = false;
+        Material m = line.material; // salinan material khusus garis ini
+        if (m != null)
+        {
+            if (m.HasProperty("_Cull")) m.SetFloat("_Cull", 0f); // tampil dari dua sisi
+            m.renderQueue = 3100; // digambar setelah latar kamera AR
+            if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", new Color(0.1f, 0.85f, 1f, 1f));
+        }
+        // pastikan layer garis ikut dirender kamera AR
+        Camera cam = Camera.main;
+        if (cam != null && (cam.cullingMask & (1 << line.gameObject.layer)) == 0) line.gameObject.layer = 0;
     }
 
     int FloorAt(Vector3 worldPos)

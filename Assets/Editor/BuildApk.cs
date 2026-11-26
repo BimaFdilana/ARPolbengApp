@@ -48,7 +48,7 @@ public static class BuildApk
             scenes = scenes,
             locationPathName = apkPath,
             target = BuildTarget.Android,
-            options = BuildOptions.None,
+            options = BuildOptions.CleanBuildCache, // build bersih: hindari data scene rusak dari cache lama
         });
 
         var s = report.summary;

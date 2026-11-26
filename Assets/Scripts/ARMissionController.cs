@@ -62,7 +62,7 @@ public class ARMissionController : MonoBehaviour
     private string missionDesc;
     private bool targetFound;
     private bool finishing;
-    private bool xrStartedHere;
+    public bool XrStartedHere { get; private set; } // true bila XR dinyalakan oleh scene ini
 
     void Start()
     {
@@ -154,7 +154,7 @@ public class ARMissionController : MonoBehaviour
         var mgr = XRGeneralSettings.Instance != null ? XRGeneralSettings.Instance.Manager : null;
         if (mgr != null)
         {
-            if (mgr.activeLoader == null) { yield return mgr.InitializeLoader(); xrStartedHere = true; }
+            if (mgr.activeLoader == null) { yield return mgr.InitializeLoader(); XrStartedHere = true; }
             if (mgr.activeLoader != null) mgr.StartSubsystems();
             else { ShowFeedback("Gagal memuat ARCore.", "failure"); yield break; }
         }
